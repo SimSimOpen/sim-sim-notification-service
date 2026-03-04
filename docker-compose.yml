@@ -1,0 +1,32 @@
+services:
+  notification-service:
+    image: ghcr.io/simsimopen/sim-sim-notification-service:latest
+    container_name: notification-service
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Tashkent
+      - JVM_OPTS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod
+    command: [
+      "java",
+      "-Djasypt.encryptor.password=qNcGpw3kPj",
+      "-Duser.timezone=Asia/Tashkent",
+      "-jar",
+      "app.jar"
+    ]
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'          # Limit to 4 CPU core
+          memory: 1024M         # Hard limit (container killed if exceeded)
+        reservations:
+          cpus: '2.0'          # Guaranteed CPU allocation
+          memory: 512M
+    restart: always
+    networks:
+      - simsim
+networks:
+  simsim:
+    name: simsim
+    external: true

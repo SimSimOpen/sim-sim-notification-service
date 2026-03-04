@@ -31,7 +31,7 @@ ext {
 }
 
 dependencies {
-    implementation 'info.jemsit:common-contracts:1.5.0'
+    implementation 'info.jemsit:common-contracts:1.5.1'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'

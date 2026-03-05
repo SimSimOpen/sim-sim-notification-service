@@ -31,8 +31,10 @@ ext {
 }
 
 dependencies {
-    implementation 'info.jemsit:common-contracts:1.5.1'
-	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation('info.jemsit:common-contracts:1.0.0-SNAPSHOT') {
+        changing = true
+    }
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -51,4 +53,8 @@ dependencyManagement {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
 }

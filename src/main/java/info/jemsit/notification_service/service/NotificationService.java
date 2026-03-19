@@ -8,5 +8,5 @@ public interface NotificationService {
 
     Flux<String> getNotificationStream();
 
-    Flux<String> createStreamForUser(String userId);
+    Flux<String> createStreamForUser(String token);
 }

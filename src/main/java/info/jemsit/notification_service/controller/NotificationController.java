@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
@@ -17,7 +18,7 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping(value = "stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> streamEvents() {
+    public Flux<ServerSentEvent<String>> streamEvents(@RequestHeader("Authorization") String token) {
 
         log.info("New SSE connection established");
 
@@ -29,22 +30,24 @@ public class NotificationController {
                                 .build()),
 
                         // Stream notifications
-                        notificationService.getNotificationStream()
-                                .map(notification -> {
-                                    // Send keepalives as heartbeat events
-                                    if ("keepalive".equals(notification)) {
-                                        return ServerSentEvent.<String>builder()
-                                                .event("heartbeat")
-                                                .data("ping")
-                                                .build();
-                                    }
+                        Flux.merge(
+                                notificationService.getNotificationStream(),
+                                notificationService.createStreamForUser(token)
+                        ).map(notification -> {
+                            // Send keepalives as heartbeat events
+                            if ("keepalive".equals(notification)) {
+                                return ServerSentEvent.<String>builder()
+                                        .event("heartbeat")
+                                        .data("ping")
+                                        .build();
+                            }
 
-                                    // Send real notifications
-                                    return ServerSentEvent.<String>builder()
-                                            .event("media-notification")
-                                            .data(notification)
-                                            .build();
-                                })
+                            // Send real notifications
+                            return ServerSentEvent.<String>builder()
+                                    .event("media-notification")
+                                    .data(notification)
+                                    .build();
+                        })
                 )
                 .doOnCancel(() -> log.info("SSE connection cancelled by client"))
                 .doOnComplete(() -> log.warn("SSE connection completed"))

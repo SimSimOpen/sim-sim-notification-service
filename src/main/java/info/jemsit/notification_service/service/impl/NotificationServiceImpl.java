@@ -69,8 +69,8 @@ public class NotificationServiceImpl implements NotificationService {
         return getUserIdFromAuthService(token)
                 .flatMapMany(userId -> Flux.create(fluxSink -> {
                     sseSinkRegistry.register(userId, fluxSink);
-                    fluxSink.onCancel(() -> sseSinkRegistry.unregister(userId));
-                    fluxSink.onDispose(() -> sseSinkRegistry.unregister(userId));
+                    fluxSink.onCancel(() -> sseSinkRegistry.unregister(userId, fluxSink));
+                    fluxSink.onDispose(() -> sseSinkRegistry.unregister(userId, fluxSink));
                 }));
     }
 

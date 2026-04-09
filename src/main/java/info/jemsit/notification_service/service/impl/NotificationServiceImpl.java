@@ -86,12 +86,13 @@ public class NotificationServiceImpl implements NotificationService {
         var random = new java.util.Random();
         var otp = String.format("%06d", random.nextInt(1000000));
         String key = request.phoneNumber();
-        Duration ttl = Duration.ofMinutes(2); // 2-minute expiration
+        Duration ttl = Duration.ofMinutes(2);
         redisTemplate
-                .opsForList()
-                .rightPush(key, otp)                // push OTP to list
-                .then(redisTemplate.expire(key, ttl)) // set TTL on the key
-                .subscribe();                       // or return Mono<Void> for reactive chain
+                .delete(key)
+                .then(redisTemplate.opsForList()
+                        .rightPush(key, otp))
+                .then(redisTemplate.expire(key, ttl))
+                .subscribe();
 
         return Mono.fromRunnable(() -> smsService.sendSms(request, otp));
     }
@@ -99,11 +100,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public Mono<Boolean> verifyOTP(String phoneNumber, String otp) {
         log.info("Verifying OTP for phone number:{} ", phoneNumber);
-        final String editedPhoneNumber = "+" + phoneNumber.trim(); // Ensure the phone number is in the correct format
+        final String editedPhoneNumber = phoneNumber.trim(); // Ensure the phone number is in the correct format
         return redisTemplate
                 .opsForList()
                 .leftPop(editedPhoneNumber)
                 .map(storedOtp -> {
+                    log.info("Stored otp {} and coming otp {} ", storedOtp, otp);
                     if (storedOtp == null) {
                         log.warn("No OTP found for phone number: {}", editedPhoneNumber);
                         return false;

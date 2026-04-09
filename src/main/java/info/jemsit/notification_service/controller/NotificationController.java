@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Map;
+
 @RestController
 @RequiredArgsConstructor
 @Slf4j
@@ -59,7 +61,11 @@ public class NotificationController {
     public Mono<?> sendOtp(@RequestBody SmsRequestDTO request) {
         return notificationService.sendOTP(request)
                 .doOnSuccess(result -> log.info("OTP sent successfully for token: {}", request))
-                .doOnError(error -> log.error("Failed to send OTP for token: {}. Error: {}", request, error.getMessage()));
+                .doOnError(error -> log.error("Failed to send OTP for token: {}. Error: {}", request, error.getMessage()))
+                .thenReturn(Map.of(
+                        "success", true,
+                        "message", "OTP sent successfully"
+                ));
     }
 
     @GetMapping("verify-otp")

@@ -5,10 +5,13 @@ import info.jemsit.common.dto.message.MediaUploaded;
 import info.jemsit.common.dto.message.RabbitMQMessage;
 import info.jemsit.common.dto.response.auth.UserDetailsResponseDTO;
 import info.jemsit.notification_service.service.NotificationService;
+import info.jemsit.notification_service.service.SmsRequestDTO;
+import info.jemsit.notification_service.service.SmsService;
 import info.jemsit.notification_service.service.SseSinkRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -26,24 +29,28 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final SseSinkRegistry sseSinkRegistry;
 
+    private final SmsService smsService;
+
+    private final ReactiveRedisTemplate<String, String> redisTemplate;
+
     private final WebClient webClient;
 
     private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer(1000, false);
 
     @Override
     @RabbitListener(queues = MEDIA_QUEUE)
-    public   void handleRabbitMQMessage(RabbitMQMessage event) {
-       switch (event) {
-           case MediaFromMobileStarted m -> notifyUser(m.getId(), m.getMessageString());
-           case MediaUploaded m -> notifyUser(m.getId(), m.getMessageString());
-           default -> log.warn("Received unknown message type: {}", event.getClass().getSimpleName());
-       }
+    public void handleRabbitMQMessage(RabbitMQMessage event) {
+        switch (event) {
+            case MediaFromMobileStarted m -> notifyUser(m.getId(), m.getMessageString());
+            case MediaUploaded m -> notifyUser(m.getId(), m.getMessageString());
+            default -> log.warn("Received unknown message type: {}", event.getClass().getSimpleName());
+        }
     }
 
     public void sendMessageToStream(String message) {
         log.info("Message received from RabbitMQ, {}", message);
         Sinks.EmitResult result = sink.tryEmitNext(message);
-        if(result.isFailure()) {
+        if (result.isFailure()) {
             log.error("Failed to emit message:{} - Result: {} - SINK IS DEAD, NEEDS RESTART",
                     message, result);
         }
@@ -51,17 +58,17 @@ public class NotificationServiceImpl implements NotificationService {
 
     public Flux<String> getNotificationStream() {
         return Flux.merge(
-                sink.asFlux()
-                        .doOnNext(msg -> log.info("Emitting message to subscribers: {}", msg)),
-                Flux.interval(Duration.ofSeconds(20))
-                        .map(tick -> {
-                            log.info("Sending heartbeat");
-                            return "Keep-Alive";
-                        })
-        ).doOnSubscribe(s-> log.info("New subscriber to notification stream"))
-         .doOnCancel(() -> log.info("Subscriber cancelled from notification stream"))
-                .doOnError(error-> log.error("Error in notification stream: {}", error.getMessage()))
-                .doOnComplete(()-> log.info("Notification stream completed"));
+                        sink.asFlux()
+                                .doOnNext(msg -> log.info("Emitting message to subscribers: {}", msg)),
+                        Flux.interval(Duration.ofSeconds(20))
+                                .map(tick -> {
+                                    log.info("Sending heartbeat");
+                                    return "Keep-Alive";
+                                })
+                ).doOnSubscribe(s -> log.info("New subscriber to notification stream"))
+                .doOnCancel(() -> log.info("Subscriber cancelled from notification stream"))
+                .doOnError(error -> log.error("Error in notification stream: {}", error.getMessage()))
+                .doOnComplete(() -> log.info("Notification stream completed"));
     }
 
     @Override
@@ -72,6 +79,42 @@ public class NotificationServiceImpl implements NotificationService {
                     fluxSink.onCancel(() -> sseSinkRegistry.unregister(userId, fluxSink));
                     fluxSink.onDispose(() -> sseSinkRegistry.unregister(userId, fluxSink));
                 }));
+    }
+
+    @Override
+    public Mono<?> sendOTP(SmsRequestDTO request) {
+        var random = new java.util.Random();
+        var otp = String.format("%06d", random.nextInt(1000000));
+        String key = request.phoneNumber();
+        Duration ttl = Duration.ofMinutes(2); // 2-minute expiration
+        redisTemplate
+                .opsForList()
+                .rightPush(key, otp)                // push OTP to list
+                .then(redisTemplate.expire(key, ttl)) // set TTL on the key
+                .subscribe();                       // or return Mono<Void> for reactive chain
+
+        return Mono.fromRunnable(() -> smsService.sendSms(request, otp));
+    }
+
+    @Override
+    public Mono<Boolean> verifyOTP(String phoneNumber, String otp) {
+        log.info("Verifying OTP for phone number:{} ", phoneNumber);
+        final String editedPhoneNumber = "+" + phoneNumber.trim(); // Ensure the phone number is in the correct format
+        return redisTemplate
+                .opsForList()
+                .leftPop(editedPhoneNumber)
+                .map(storedOtp -> {
+                    if (storedOtp == null) {
+                        log.warn("No OTP found for phone number: {}", editedPhoneNumber);
+                        return false;
+                    }
+                    boolean isValid = storedOtp.equals(otp);
+                    if (!isValid) {
+                        log.warn("Invalid OTP attempt for phone number: {}", editedPhoneNumber);
+                    }
+                    return isValid;
+                })
+                .defaultIfEmpty(false); // in case the list is empty
     }
 
     public void notifyUser(String userId, String message) {

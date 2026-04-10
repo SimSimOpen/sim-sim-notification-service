@@ -20,7 +20,7 @@ public class RedisConfig {
     private int redisPort;
     @Value("${redis.username:default}")
     private String redisUsername;
-    @Value("${redis.password:eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81}")
+    @Value("${redis.password}")
     private String redisPassword;
 
     @Bean

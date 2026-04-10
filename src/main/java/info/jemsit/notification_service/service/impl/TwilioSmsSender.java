@@ -29,6 +29,7 @@ public class TwilioSmsSender implements SmsService {
             log.info("SMS sent to {}", request.phoneNumber());
         } catch (Exception e) {
             log.error("Failed to send SMS to {}. Error: {}", request.phoneNumber(), e.getMessage());
+            throw new RuntimeException("Failed to send SMS: " + e.getMessage());
         }
     }
 }

@@ -17,6 +17,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 
@@ -87,14 +89,20 @@ public class NotificationServiceImpl implements NotificationService {
         var otp = String.format("%06d", random.nextInt(1000000));
         String key = request.phoneNumber();
         Duration ttl = Duration.ofMinutes(2);
-        redisTemplate
+        return  redisTemplate
                 .delete(key)
-                .then(redisTemplate.opsForList()
-                        .rightPush(key, otp))
+                .then(redisTemplate.opsForList().rightPush(key, otp))
                 .then(redisTemplate.expire(key, ttl))
-                .subscribe();
+                .doOnSuccess(ignored->{
+                    Mono.fromRunnable(() -> smsService.sendSms(request, otp))
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .subscribe(
+                                    null,
+                                    err-> log.error("Failed to send OTP SMS: {}", err.getMessage())
+                            );
+                })
 
-        return Mono.fromRunnable(() -> smsService.sendSms(request, otp));
+                .then(Mono.just("OTP sent successfully"));
     }
 
     @Override

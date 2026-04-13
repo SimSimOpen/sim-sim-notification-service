@@ -3,7 +3,10 @@ package info.jemsit.notification_service.service.impl;
 import info.jemsit.common.dto.message.MediaFromMobileStarted;
 import info.jemsit.common.dto.message.MediaUploaded;
 import info.jemsit.common.dto.message.RabbitMQMessage;
+import info.jemsit.common.dto.request.auth.AuthenticationRequestDTO;
+import info.jemsit.common.dto.response.auth.AuthenticationResponseDTO;
 import info.jemsit.common.dto.response.auth.UserDetailsResponseDTO;
+import info.jemsit.common.exceptions.UserException;
 import info.jemsit.notification_service.service.NotificationService;
 import info.jemsit.notification_service.service.SmsRequestDTO;
 import info.jemsit.notification_service.service.SmsService;
@@ -17,7 +20,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
-import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
@@ -36,6 +38,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final ReactiveRedisTemplate<String, String> redisTemplate;
 
     private final WebClient webClient;
+
 
     private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer(1000, false);
 
@@ -89,16 +92,20 @@ public class NotificationServiceImpl implements NotificationService {
         var otp = String.format("%06d", random.nextInt(1000000));
         String key = request.phoneNumber();
         Duration ttl = Duration.ofMinutes(2);
-        return  redisTemplate
+        return redisTemplate
                 .delete(key)
                 .then(redisTemplate.opsForList().rightPush(key, otp))
                 .then(redisTemplate.expire(key, ttl))
-                .doOnSuccess(ignored->{
-                    Mono.fromRunnable(() -> smsService.sendSms(request, otp))
+                .doOnSuccess(ignored -> {
+                    Mono.fromRunnable(() -> {
+                                        smsService.sendSms(request, otp);
+                                        log.info("Sending OTP {} to phone number {}", otp, request.phoneNumber());
+                                    }
+                            )
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe(
                                     null,
-                                    err-> log.error("Failed to send OTP SMS: {}", err.getMessage())
+                                    err -> log.error("Failed to send OTP SMS: {}", err.getMessage())
                             );
                 })
 
@@ -106,7 +113,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public Mono<Boolean> verifyOTP(String phoneNumber, String otp) {
+    public Mono<AuthenticationResponseDTO> verifyOTP(String phoneNumber, String otp) {
         log.info("Verifying OTP for phone number:{} ", phoneNumber);
         final String editedPhoneNumber = phoneNumber.trim(); // Ensure the phone number is in the correct format
         return redisTemplate
@@ -116,15 +123,16 @@ public class NotificationServiceImpl implements NotificationService {
                     log.info("Stored otp {} and coming otp {} ", storedOtp, otp);
                     if (storedOtp == null) {
                         log.warn("No OTP found for phone number: {}", editedPhoneNumber);
-                        return false;
+                        throw new UserException("No OTP found for the provided phone number");
                     }
                     boolean isValid = storedOtp.equals(otp);
                     if (!isValid) {
                         log.warn("Invalid OTP attempt for phone number: {}", editedPhoneNumber);
+                        throw new UserException("Invalid OTP provided");
                     }
-                    return isValid;
+                    return authenticateWithOtp(phoneNumber, null);
                 })
-                .defaultIfEmpty(false); // in case the list is empty
+                .defaultIfEmpty(new AuthenticationResponseDTO(null, null, null, null, null, null, null)); // in case the list is empty
     }
 
     public void notifyUser(String userId, String message) {
@@ -142,5 +150,14 @@ public class NotificationServiceImpl implements NotificationService {
                     return user.id().toString();
                 })
                 .doOnError(error -> log.error("Failed to retrieve user details from auth service: {}", error.getMessage()));
+    }
+
+    private AuthenticationResponseDTO authenticateWithOtp(String phoneNumber, String otp) {
+        return webClient.post()
+                .uri("/api/auth/v1/authenticate/with-otp")
+                .bodyValue(new AuthenticationRequestDTO(phoneNumber, otp))
+                .retrieve()
+                .bodyToMono(AuthenticationResponseDTO.class)
+                .doOnError(error -> log.error("Failed to authenticate with OTP: {}", error.getMessage())).block();
     }
 }

@@ -1,6 +1,7 @@
 package info.jemsit.notification_service.service;
 
 import info.jemsit.common.dto.message.RabbitMQMessage;
+import info.jemsit.common.dto.response.auth.AuthenticationResponseDTO;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -13,6 +14,6 @@ public interface NotificationService {
 
     Mono<?> sendOTP(SmsRequestDTO request);
 
-    Mono<Boolean> verifyOTP(String phoneNumber, String otp);
+    Mono<AuthenticationResponseDTO> verifyOTP(String phoneNumber, String otp);
 
 }

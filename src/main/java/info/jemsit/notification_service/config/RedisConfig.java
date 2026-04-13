@@ -1,4 +1,4 @@
-package info.jemsit.notification_service.config.sms;
+package info.jemsit.notification_service.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -14,9 +14,9 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
 
-    @Value("${redis.host:localhost}")
+    @Value("${redis.host}")
     private String redisHost;
-    @Value("${redis.port:6379}")
+    @Value("${redis.port}")
     private int redisPort;
     @Value("${redis.username:default}")
     private String redisUsername;

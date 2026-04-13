@@ -14,6 +14,16 @@ java {
 	}
 }
 
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+ext {
+    set('springCloudVersion', "2025.0.0")
+}
+
 repositories {
 	mavenCentral()
     maven {
@@ -21,14 +31,11 @@ repositories {
         url = uri("https://maven.pkg.github.com/SimSimOpen/sim-sim-common-contracts")
         credentials {
             username = project.findProperty("gpr.user")?: System.getenv("GITHUB_ACTOR")
-
             password = project.findProperty("gpr.key")?: System.getenv("GITHUB_TOKEN")
         }
     }
 }
-ext {
-    set('springCloudVersion', "2025.0.0")
-}
+
 
 dependencies {
     implementation('info.jemsit:common-contracts:1.0.0-SNAPSHOT') {

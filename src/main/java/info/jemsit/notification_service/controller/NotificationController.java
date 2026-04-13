@@ -1,5 +1,6 @@
 package info.jemsit.notification_service.controller;
 
+import info.jemsit.common.dto.response.auth.AuthenticationResponseDTO;
 import info.jemsit.notification_service.service.NotificationService;
 import info.jemsit.notification_service.service.SmsRequestDTO;
 import lombok.RequiredArgsConstructor;
@@ -69,7 +70,7 @@ public class NotificationController {
     }
 
     @GetMapping("verify-otp")
-    public Mono<Boolean> verifyOtp(@RequestParam String phoneNumber, @RequestParam String otp) {
+    public Mono<AuthenticationResponseDTO> verifyOtp(@RequestParam String phoneNumber, @RequestParam String otp) {
         return notificationService.verifyOTP(phoneNumber, otp)
                 .doOnSuccess(result -> log.info("OTP verification result for phone {}: {}", phoneNumber, result))
                 .doOnError(error -> log.error("OTP verification failed for phone {}. Error: {}", phoneNumber, error.getMessage()));

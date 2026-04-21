@@ -10,19 +10,22 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
     command: [
       "java",
-      "-Djasypt.encryptor.password=qNcGpw3kPj",
       "-Duser.timezone=Asia/Tashkent",
+      "-Xms128m",
+      "-Xmx384m",
+      "-XX:+UseG1GC",
+      "-XX:MaxGCPauseMillis=200",
       "-jar",
       "app.jar"
     ]
     deploy:
       resources:
         limits:
-          cpus: '4.0'          # Limit to 4 CPU core
-          memory: 1024M         # Hard limit (container killed if exceeded)
+          cpus: '1.0'          # Limit to 4 CPU core
+          memory: 512M         # Hard limit (container killed if exceeded)
         reservations:
-          cpus: '2.0'          # Guaranteed CPU allocation
-          memory: 512M
+          cpus: '0.5'          # Guaranteed CPU allocation
+          memory: 256M
     restart: always
     networks:
       - simsim

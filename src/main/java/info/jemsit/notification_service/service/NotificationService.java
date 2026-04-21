@@ -6,7 +6,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface NotificationService {
-     void handleRabbitMQMessage(RabbitMQMessage  event);
+    void handleRabbitMQMessage(RabbitMQMessage event);
 
     Flux<String> getNotificationStream();
 
@@ -15,5 +15,4 @@ public interface NotificationService {
     Mono<?> sendOTP(SmsRequestDTO request);
 
     Mono<AuthenticationResponseDTO> verifyOTP(String phoneNumber, String otp);
-
 }

@@ -46,8 +46,8 @@ public class NotificationServiceImpl implements NotificationService {
     @RabbitListener(queues = MEDIA_QUEUE)
     public void handleRabbitMQMessage(RabbitMQMessage event) {
         switch (event) {
-            case MediaFromMobileStarted m -> notifyUser(m.getId(), m.getMessageString());
-            case MediaUploaded m -> notifyUser(m.getId(), m.getMessageString());
+            case MediaFromMobileStarted m -> notifyUser(m.getUserId(), m.getMessageString());
+            case MediaUploaded m -> notifyUser(m.getUserId(), m.getMessageString());
             default -> log.warn("Received unknown message type: {}", event.getClass().getSimpleName());
         }
     }

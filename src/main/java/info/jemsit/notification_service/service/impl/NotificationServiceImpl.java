@@ -24,7 +24,8 @@ import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 
-import static info.jemsit.common.data.constants.RabbitMQConstants.MEDIA_QUEUE;
+import static info.jemsit.common.data.constants.RabbitMQConstants.MEDIA_NOTIFICATION_QUEUE;
+import static info.jemsit.common.data.constants.RabbitMQConstants.PRODUCT_NOTIFICATION_QUEUE;
 
 @Service
 @RequiredArgsConstructor
@@ -43,7 +44,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer(1000, false);
 
     @Override
-    @RabbitListener(queues = MEDIA_QUEUE, ackMode = "AUTO")
+    @RabbitListener(queues = {MEDIA_NOTIFICATION_QUEUE, PRODUCT_NOTIFICATION_QUEUE}, ackMode = "AUTO")
     public void handleRabbitMQMessage(RabbitMQMessage event) {
         switch (event) {
             case MediaFromMobileStarted m -> notifyUser(m.getUserId(), m.getMessageString());

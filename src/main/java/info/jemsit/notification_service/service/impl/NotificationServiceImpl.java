@@ -43,7 +43,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer(1000, false);
 
     @Override
-    @RabbitListener(queues = MEDIA_QUEUE)
+    @RabbitListener(queues = MEDIA_QUEUE, ackMode = "AUTO")
     public void handleRabbitMQMessage(RabbitMQMessage event) {
         switch (event) {
             case MediaFromMobileStarted m -> notifyUser(m.getUserId(), m.getMessageString());

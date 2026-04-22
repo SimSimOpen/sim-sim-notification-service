@@ -6,7 +6,6 @@ services:
       - .env
     environment:
       - TZ=Asia/Tashkent
-      - JVM_OPTS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod
     command: [
       "java",
